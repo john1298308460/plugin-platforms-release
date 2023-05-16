@@ -1,19 +1,17 @@
-package run.halo.starter;
+package run.halo.release;
 
 import org.pf4j.PluginWrapper;
 import org.springframework.stereotype.Component;
-import run.halo.app.extension.Scheme;
-import run.halo.app.extension.SchemeManager;
 import run.halo.app.plugin.BasePlugin;
 
 /**
- * @author guqing
+ * @author junhong
  * @since 2.0.0
  */
 @Component
-public class StarterPlugin extends BasePlugin {
+public class PlatformsReleasePlugin extends BasePlugin {
 
-    public StarterPlugin(PluginWrapper wrapper) {
+    public PlatformsReleasePlugin(PluginWrapper wrapper) {
         super(wrapper);
     }
 

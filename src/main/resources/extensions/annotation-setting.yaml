@@ -1,0 +1,20 @@
+apiVersion: v1alpha1
+kind: AnnotationSetting
+metadata:
+  name: annotation-setting-publish-flag
+spec:
+  targetRef:
+    group: content.halo.run
+    kind: Post
+  formSchema:
+    - $formkit: radio
+      name: if_publish
+      id: if_publish
+      key: if_publish
+      label: 是否发布文章时推送到微信公众号
+      value: "false"
+      options:
+        - label: 是
+          value: "true"
+        - label: 否
+          value: "false"

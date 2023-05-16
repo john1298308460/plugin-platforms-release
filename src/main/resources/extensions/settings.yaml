@@ -1,0 +1,19 @@
+apiVersion: v1alpha1
+kind: Setting
+metadata:
+  name: platforms-settings
+spec:
+  forms:
+    - group: basic
+      label: 微信公众号基本设置
+      formSchema:
+        - $formkit: text
+          help: 微信公众号 appId
+          label: appId
+          name: appId
+          validation: required
+        - $formkit: text
+          help: 微信公众号 appSecret
+          label: appSecret
+          name: appSecret
+          validation: required
