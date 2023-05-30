@@ -1,45 +1,38 @@
-# plugin-starter
+# plugin-platforms-release
 
-Halo 2.0 插件开发快速开始模板。
+Halo 2.0 多平台发布插件
 
-## 开发环境
+## 功能特点
 
-插件开发的详细文档请查阅：<https://docs.halo.run/developer-guide/plugin/hello-world>
+Halo 的文章在发布时可以同步到其他平台（目前仅支持同步到微信公众号）
 
-```bash
-git clone git@github.com:halo-sigs/plugin-starter.git
+## 如何使用
 
-# 或者当你 fork 之后
+安装插件之后
+1、点击插件配置中的「微信公众号基本配置」，填写需要发布到微信公众号的 appId 和 appSecret，并保存。
+![基础设置](./插件基本设置.png);
 
-git clone git@github.com:{your_github_id}/plugin-starter.git
+2、在文章的 文章设置--元数据 处选择「是否发布文章时推送到微信公众号」的单选框，比如选中是，再点击保存。
+
+3、当文章从「未发布」状态转向「发布」状态时，则会触发将文章同步到微信公众号的草稿箱中，用户可以将草稿箱中的文章选择发布或者群发。
+![推送文章](./是否推送.png);
+
+4、推送之后可以登录到公众号平台，查看草稿箱，可以选择将草稿箱的文章群发或者是普通发布。（文章内涉及的图片已经自动上传到了素材库）
+![平台查看](./素材.png);
+![草稿查看](./草稿.png);
+
+
+## 获取插件方式
+### 在 Release 下载最新
+### 使用 workflows 打包
+### 本地打包
+下载源码后，执行以下命令
 ```
-
-```bash
-cd path/to/plugin-starter
-```
-
-```bash
-# macOS / Linux
-./gradlew pnpmInstall
-
-# Windows
-./gradlew.bat pnpmInstall
-```
-
-```bash
-# macOS / Linux
 ./gradlew build
-
-# Windows
-./gradlew.bat build
 ```
 
-修改 Halo 配置文件：
+构建完成之后，可以在 build/libs 目录得到插件的 JAR 包，在 Halo 后台的插件管理上传即可。
 
-```yaml
-halo:
-  plugin:
-    runtime-mode: development
-    fixedPluginPath:
-      - "/path/to/plugin-starter"
-```
+
+
+
