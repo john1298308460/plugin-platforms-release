@@ -1,0 +1,32 @@
+package run.halo.release.wx;
+
+public class ConstantUtil {
+
+    // 凭证获取（GET）
+    public final static String tokenUrl =
+        "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=APPID&secret=APPSECRET";
+
+    // 获取用户openid集合
+    public final static String sendResourceUrl =
+        "https://api.weixin.qq.com/cgi-bin/material/batchget_material?access_token=ACCESS_TOKEN";
+
+    //上传素材
+    public final static String uploadUrl =
+        "https://api.weixin.qq.com/cgi-bin/material/add_material?access_token=%s&type=%s";
+
+    //发布
+    public final static String publishUrl =
+        "https://api.weixin.qq.com/cgi-bin/freepublish/submit?access_token=ACCESS_TOKEN";
+
+    //新增草稿
+    public final static String sendtemplateUrl =
+        "https://api.weixin.qq.com/cgi-bin/draft/add?access_token=ACCESS_TOKEN";
+
+    // 根据 mediaId 获取素材
+    public static final String getMediaUrl =
+        "https://api.weixin.qq.com/cgi-bin/material/get_material?access_token=ACCESS_TOKEN";
+
+    // 公众号群发消息（标签模式）
+    public static final String getSendAllUrl =
+        "https://api.weixin.qq.com/cgi-bin/message/mass/sendall?access_token=ACCESS_TOKEN";
+}
