@@ -226,7 +226,118 @@ public class HttpMain {
                 e.printStackTrace();
             }
         }
-        return mediaId.toString();
+        return mediaId;
+    }
+
+
+    // 编辑草稿箱
+    public int updateDraft(String title, String author, String content, String accessToken,
+                           String thumbMediaId, String mediaId) {
+        // 开始调用微信公众号的 api：发布草稿
+        CloseableHttpClient client = null;
+        CloseableHttpResponse response = null;
+        try {
+            String url = ConstantUtil.updateDraftUrl.replace("ACCESS_TOKEN", accessToken);
+            client = HttpClients.createDefault();
+            HttpPost post = new HttpPost(url);
+            post.setHeader("Content-Type", "application/json;charset=utf-8");
+            post.setHeader("Accept", "application/json;charset=utf-8");
+            RequestConfig config = RequestConfig.custom().setConnectTimeout(Timeout.ofSeconds(10))
+                .setConnectionRequestTimeout(Timeout.ofSeconds(3)).build();
+            post.setConfig(config);
+            // 准备数据
+            JSONObject jsonArray = new JSONObject();
+            JSONObject articles = new JSONObject();
+
+            jsonArray.put("media_id", mediaId);
+            // 要更新的文章在图文消息中的位置（多图文消息时，此字段才有意义），第一篇为0
+            jsonArray.put("index", 0);
+            articles.put("title", title);
+            articles.put("author", author);
+            articles.put("content", content);
+            articles.put("thumb_media_id", thumbMediaId);
+            articles.put("need_open_comment", 0);
+            articles.put("only_fans_can_comment", 0);
+
+            jsonArray.put("articles", articles);
+            // 设置请求体
+            post.setEntity(new StringEntity(jsonArray.toString(), Charset.forName("UTF-8")));
+            response = client.execute(post);
+            // 整理返回值
+            HttpEntity entity = response.getEntity();
+            String result = EntityUtils.toString(entity);
+            JSONObject rst = JSON.parseObject(result);
+
+            return rst.getInteger("errcode");
+        } catch (SocketTimeoutException e) {
+            e.printStackTrace();
+            throw new RuntimeException("获取token出现连接/超时异常");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("获取token时执行内部代码时出现异常");
+        } finally {
+            try {
+                if (client != null) {
+                    client.close();
+                }
+                if (response != null) {
+                    response.close();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
+    /**
+     * 删除草稿接口
+     * @param accessToken
+     * @param mediaId
+     * @return
+     */
+    public int deleteDraft(String accessToken, String mediaId) {
+        // 开始调用微信公众号的 api：发布草稿
+        CloseableHttpClient client = null;
+        CloseableHttpResponse response = null;
+        try {
+            String url = ConstantUtil.deleteDraftUrl.replace("ACCESS_TOKEN", accessToken);
+            client = HttpClients.createDefault();
+            HttpPost post = new HttpPost(url);
+            post.setHeader("Content-Type", "application/json;charset=utf-8");
+            post.setHeader("Accept", "application/json;charset=utf-8");
+            RequestConfig config = RequestConfig.custom().setConnectTimeout(Timeout.ofSeconds(10))
+                .setConnectionRequestTimeout(Timeout.ofSeconds(3)).build();
+            post.setConfig(config);
+            // 准备数据
+            JSONObject json = new JSONObject();
+            json.put("media_id", mediaId);
+            // 设置请求体
+            post.setEntity(new StringEntity(json.toString(), Charset.forName("UTF-8")));
+            response = client.execute(post);
+            // 整理返回值
+            HttpEntity entity = response.getEntity();
+            String result = EntityUtils.toString(entity);
+            JSONObject rst = JSON.parseObject(result);
+            return rst.getInteger("errcode");
+        } catch (SocketTimeoutException e) {
+            e.printStackTrace();
+            throw new RuntimeException("获取token出现连接/超时异常");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("获取token时执行内部代码时出现异常");
+        } finally {
+            try {
+                if (client != null) {
+                    client.close();
+                }
+                if (response != null) {
+                    response.close();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
 
@@ -478,30 +589,33 @@ public class HttpMain {
     public void wxTest() throws Exception {
         String appid_value = "";
         String secret_value = "";
-        Token token = getToken(appid_value, secret_value);
+        String thumbMediaId = "";
+        //Token token = getToken(appid_value, secret_value);
         //获取access_token的json
-        String access_token = token.getAccessToken();
+        //String access_token = token.getAccessToken();
         // 上传封面图
-//        JSONObject uploadImgRst = uploadimg("http://localhost:8090/upload/cover.jpg", access_token);
-        //String thumbMediaId = uploadImgRst.getString("media_id");
+        //JSONObject uploadImgRst = uploadimg("http://localhost:8090/upload/0605_1.png", access_token);
+//        if (uploadImgRst != null) {
+//            thumbMediaId = uploadImgRst.getString("media_id");
+//        }
         String title = "测试文章";
         String author = "测试用户";
-        String content = "<h2 id=\"heading-1\"><img loading=\"lazy\" src=\"http://localhost:8090/upload/sanshen.png\" alt=\"布鲁.jpg\" width=\"100%\" height=\"100%\" style=\"display: inline-block\"><strong>Hello Halo</strong></h2><p>如果你看到了这一篇文章，那么证明你已经安装成功了，感谢使用 <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://halo.run/\">Halo</a> 进行创作，希望<strong>能够</strong>使用愉快。</p><h2 id=\"heading-2\"><strong>相关链接</strong></h2><ul><li><p>官网：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://halo.run\">https://halo.run</a></p></li><li><p>文档：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://docs.halo.run\">https://docs.halo.run</a></p></li><li><p>社区：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://bbs.halo.run\">https://bbs.halo.run</a></p></li><li><p>主题仓库：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://halo.run/themes.html\">https://halo.run/themes.html</a></p></li><li><p>开源地址：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://github.com/halo-dev/halo\">https://github.com/halo-dev/halo</a></p></li></ul><img loading=\"lazy\" src=\"http://localhost:8090/upload/sanshen2.jpg\" alt=\"布鲁.jpg\" width=\"100%\" height=\"100%\" style=\"display: inline-block\"><p>在使用过程中，有任何问题都可以通过以上链接找寻答案，或者联系我们。</p><blockquote><p>这是一篇自动生成的文章，请删除这篇文章之后开始你的创作吧！</p></blockquote>";
+        String content =
+            "<h2 id=\"heading-1\"><img loading=\"lazy\" src=\"http://localhost:8090/upload/0605_1.png\" alt=\"布鲁.jpg\" width=\"100%\" height=\"100%\" style=\"display: inline-block\"><strong>Hello Halo</strong></h2><p>如果你看到了这一篇文章，那么证明你已经安装成功了，感谢使用 <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://halo.run/\">Halo</a> 进行创作，希望<strong>能够</strong>使用愉快。</p><h2 id=\"heading-2\"><strong>相关链接</strong></h2><ul><li><p>官网：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://halo.run\">https://halo.run</a></p></li><li><p>文档：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://docs.halo.run\">https://docs.halo.run</a></p></li><li><p>社区：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://bbs.halo.run\">https://bbs.halo.run</a></p></li><li><p>主题仓库：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://halo.run/themes.html\">https://halo.run/themes.html</a></p></li><li><p>开源地址：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://github.com/halo-dev/halo\">https://github.com/halo-dev/halo</a></p></li></ul><img loading=\"lazy\" src=\"http://localhost:8090/upload/0605_1.png\" alt=\"布鲁.jpg\" width=\"100%\" height=\"100%\" style=\"display: inline-block\"><p>在使用过程中，有任何问题都可以通过以上链接找寻答案，或者联系我们。</p><blockquote><p>这是一篇自动生成的文章，请删除这篇文章之后开始你的创作吧！</p></blockquote>";
         // 上传图片并且替换 url
         //String content2 = getImgs(content, access_token);
+        // 编辑草稿箱
+        String mediaId = "";
+        // 编辑封面图
+        //Integer rst = this.updateDraft(title, author, content2, access_token, thumbMediaId, mediaId);
         // 上传到草稿
-        //String rst = this.addDraft(title, author, content2, access_token, thumbMediaId);
-        //String imgUrl = this.getImgUrlByMediaId(thumbMediaId, access_token);
-        //输出返回数据
-        //System.out.println(rst);
-        //String str = "<h2 id=\"heading-1\"><img loading=\"lazy\" src=\"http://localhost:8090/upload/sanshen.png\" src=\"http://localhost:8090/upload/sanshen2.jpg\" alt=\"布鲁.jpg\" width=\"100%\" height=\"100%\" style=\"display: inline-block\"><img src=\"http://localhost:8090/upload/sanshen3.jpg\">";
-//        String[] strs = this.getImgs(str);
-//        String rst = this.getImgs(str, access_token);
+        //String rst = addDraft(title, author, content2, access_token, thumbMediaId);
+        // 删除草稿
+        //int rst = deleteDraft(access_token, mediaId);
         // 发布草稿
 //        String publishId = publishPost(rst, access_token);
         // 群发推送
 //        String msgDataId = sendAllMessage(rst, thumbMediaId, access_token);
-//
-//        System.out.println(msgDataId);
+        //System.out.println(rst);
     }
 }

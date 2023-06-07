@@ -16,11 +16,10 @@ public class Media extends AbstractExtension {
     @Schema(requiredMode = REQUIRED)
     private MediaSpec spec;
 
+    @Data
     public static class MediaSpec {
 
         private String id;
-
-        private String name;
 
         private String url;
 

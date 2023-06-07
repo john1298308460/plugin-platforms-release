@@ -10,6 +10,7 @@ import java.io.OutputStream;
 import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
@@ -24,8 +25,20 @@ import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.util.Timeout;
+import run.halo.app.extension.ExtensionClient;
+import run.halo.app.extension.Metadata;
 
 public class WxUploadMediaApiUtil {
+
+    private final ExtensionClient client;
+
+    private static CloseableHttpClient httpClient = null;
+
+    private static CloseableHttpResponse response = null;
+
+    public WxUploadMediaApiUtil(ExtensionClient client) {
+        this.client = client;
+    }
 
     /**
      * 通用接口获取 access token 凭证, 注意需要白名单的 IP 才可调用
@@ -35,15 +48,13 @@ public class WxUploadMediaApiUtil {
      * @return
      */
     public static Token getToken(String appId, String appSecret) {
-        CloseableHttpClient client = HttpClients.createDefault();
-        CloseableHttpResponse response = null;
+        httpClient = HttpClients.createDefault();
         Token token = null;
         JSONObject jsonObject = new JSONObject();
         try {
-            String requestUrl =
-                ConstantUtil.tokenUrl.replace("APPID", appId).replace("APPSECRET", appSecret);
+            String requestUrl = ConstantUtil.tokenUrl.replace("APPID", appId).replace("APPSECRET", appSecret);
             HttpGet httpGet = new HttpGet(requestUrl);
-            response = client.execute(httpGet);
+            response = httpClient.execute(httpGet);
             HttpEntity responseEntity = response.getEntity();
             String result = EntityUtils.toString(responseEntity, Charset.forName("UTF-8"));
             jsonObject = JSON.parseObject(result);
@@ -55,16 +66,15 @@ public class WxUploadMediaApiUtil {
             return token;
         } catch (Exception e) {
             // 获取token失败
-            System.out.println(
-                "获取 token 失败 errcode:" + jsonObject.getIntValue("errcode"));
+            System.out.println("获取 token 失败 errcode:" + jsonObject.getIntValue("errcode"));
             System.out.println("获取 token 失败 errmsg:" + jsonObject.getString("errmsg"));
             e.printStackTrace();
             return null;
         } finally {
             // 关闭连接和流
             try {
-                if (client != null) {
-                    client.close();
+                if (httpClient != null) {
+                    httpClient.close();
                 }
                 if (response != null) {
                     response.close();
@@ -81,8 +91,6 @@ public class WxUploadMediaApiUtil {
      *
      * @param url 图片url
      * @return File
-     * @author dyc
-     * date:   2020/9/4 14:54
      */
     private static File getFile(String url) {
         // 获取文件名
@@ -128,8 +136,7 @@ public class WxUploadMediaApiUtil {
     public static JSONObject uploadimg(String imgUrl, String accessToken) {
         String uploadUrl = String.format(ConstantUtil.uploadUrl, accessToken, "image");
         // 创建客户端连接对象
-        CloseableHttpClient client = HttpClients.createDefault();
-        String result = "";
+        httpClient = HttpClients.createDefault();
         try {
             File file = getFile(imgUrl);
             HttpPost httpPost = new HttpPost(uploadUrl);
@@ -140,9 +147,9 @@ public class WxUploadMediaApiUtil {
             HttpEntity entity = builder.build();
             httpPost.setEntity(entity);
             // 执行提交
-            CloseableHttpResponse response = client.execute(httpPost);
+            CloseableHttpResponse response = httpClient.execute(httpPost);
             HttpEntity responseEntity = response.getEntity();
-            result = EntityUtils.toString(responseEntity, Charset.forName("UTF-8"));
+            String result = EntityUtils.toString(responseEntity, Charset.forName("UTF-8"));
             JSONObject json = JSON.parseObject(result);
             // 删除临时文件
             file.delete();
@@ -152,7 +159,7 @@ public class WxUploadMediaApiUtil {
             return null;
         } finally {
             try {
-                client.close();
+                httpClient.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -167,7 +174,7 @@ public class WxUploadMediaApiUtil {
      * @return
      * @throws IOException
      */
-    public static String getImgs(String content, String accessToken) {
+    public String getImgs(String content, String accessToken) {
         try {
             String img = "";
             Pattern p_image;
@@ -175,6 +182,8 @@ public class WxUploadMediaApiUtil {
             String regEx_img = "(<img.*src\\s*=\\s*(.*?)[^>]*?>)";
             p_image = Pattern.compile(regEx_img, Pattern.CASE_INSENSITIVE);
             m_image = p_image.matcher(content);
+            String wxImgUrl = "";
+            String wxImgMediaId = "";
             while (m_image.find()) {
                 img = m_image.group();
                 Matcher m = Pattern.compile("src\\s*=\\s*\"?(.*?)(\"|>|\\s+)").matcher(img);
@@ -182,13 +191,31 @@ public class WxUploadMediaApiUtil {
                     // 匹配到第一个 src 的内容
                     String tempSelected = m.group(1);
                     // src 的值取出来，调用图片上传到微信素材库的接口, 遍历存储文章中的图片，并且将返回的 URL 以及 media_id 存入自定义模型，并且替换 html 中的 src 值为返回的 url
-                    JSONObject rst = uploadimg(tempSelected, accessToken);
-                    if (rst != null) {
-                        String wxImgUrl = rst.getString("url");
-                        String wxImgMediaId = rst.getString("media_id");
-                        // TODO 存自定义模型
+                    Optional<Media> media = client.fetch(Media.class, tempSelected);
+                    if (!media.isEmpty() && media.get().getSpec().getValue() != null) {
+                        wxImgUrl = media.get().getSpec().getValue();
                         // 将匹配到的内容替换成返回的微信图片对应 url,否则后续上传的文章图片无法在公众号识别
                         content = content.replaceFirst(tempSelected, wxImgUrl);
+                    } else {
+                        JSONObject rst = uploadimg(tempSelected, accessToken);
+                        if (rst != null) {
+                            wxImgUrl = rst.getString("url");
+                            wxImgMediaId = rst.getString("media_id");
+                            // 图片 halo 路径存入主键 metadata 的 name
+                            // 图片 value 存入微信回传的 url
+                            // 图片 media_d 存入 mediaSpec id
+                            Media mediaItem = new Media();
+                            Media.MediaSpec mediaSpec = new Media.MediaSpec();
+                            mediaSpec.setId(wxImgMediaId);
+                            mediaSpec.setValue(wxImgUrl);
+                            mediaItem.setMetadata(new Metadata());
+                            // 主键
+                            mediaItem.getMetadata().setName(tempSelected);
+                            mediaItem.setSpec(mediaSpec);
+                            client.create(mediaItem);
+                            // 将匹配到的内容替换成返回的微信图片对应 url,否则后续上传的文章图片无法在公众号识别
+                            content = content.replaceFirst(tempSelected, wxImgUrl);
+                        }
                     }
                 }
             }
@@ -211,12 +238,10 @@ public class WxUploadMediaApiUtil {
                                   String thumbMediaId) {
         String mediaId = "";
         // 开始调用微信公众号的 api：发布草稿
-        CloseableHttpClient client = null;
-        CloseableHttpResponse response = null;
         try {
             String url = ConstantUtil.sendtemplateUrl.replace("ACCESS_TOKEN", accessToken);
             // 创建客户端连接对象
-            client = HttpClients.createDefault();
+            httpClient = HttpClients.createDefault();
             // 构建 Post 请求对象
             HttpPost post = new HttpPost(url);
             // 设置传送的内容类型是 json 格式
@@ -224,9 +249,7 @@ public class WxUploadMediaApiUtil {
             // 接收的内容类型也是 json 格式
             post.setHeader("Accept", "application/json;charset=utf-8");
             // 设置超时时间，其中 connectionRequestTimout（从连接池获取连接的超时时间）、connetionTimeout（客户端和服务器建立连接的超时时间）、socketTimeout（客户端从服务器读取数据的超时时间），单位都是毫秒
-            RequestConfig config =
-                RequestConfig.custom().setConnectTimeout(Timeout.ofSeconds(10))
-                    .setConnectionRequestTimeout(Timeout.ofSeconds(3)).build();
+            RequestConfig config = RequestConfig.custom().setConnectTimeout(Timeout.ofSeconds(10)).setConnectionRequestTimeout(Timeout.ofSeconds(3)).build();
             post.setConfig(config);
             // 准备数据
             JSONObject jsonArray = new JSONObject();
@@ -240,7 +263,7 @@ public class WxUploadMediaApiUtil {
             String article = "{ \"articles\":[ " + jsonArray + "]}";
             post.setEntity(new StringEntity(article, Charset.forName("UTF-8")));
             // 获取返回对象
-            response = client.execute(post);
+            response = httpClient.execute(post);
             // 整理返回值
             HttpEntity entity = response.getEntity();
             String result = EntityUtils.toString(entity);
@@ -256,8 +279,8 @@ public class WxUploadMediaApiUtil {
             throw new RuntimeException("获取token时执行内部代码时出现异常");
         } finally {
             try {
-                if (client != null) {
-                    client.close();
+                if (httpClient != null) {
+                    httpClient.close();
                 }
                 if (response != null) {
                     response.close();
@@ -266,7 +289,119 @@ public class WxUploadMediaApiUtil {
                 e.printStackTrace();
             }
         }
-        return mediaId.toString();
+        return mediaId;
+    }
+
+
+    /**
+     * 更新草稿接口
+     * @param title
+     * @param author
+     * @param content
+     * @param accessToken
+     * @param thumbMediaId
+     * @param mediaId
+     * @return
+     */
+    public static int updateDraft(String title, String author, String content, String accessToken, String thumbMediaId, String mediaId) {
+        // 开始调用微信公众号的 api：更新草稿
+        httpClient = HttpClients.createDefault();
+        try {
+            String url = ConstantUtil.updateDraftUrl.replace("ACCESS_TOKEN", accessToken);
+            HttpPost post = new HttpPost(url);
+            post.setHeader("Content-Type", "application/json;charset=utf-8");
+            post.setHeader("Accept", "application/json;charset=utf-8");
+            RequestConfig config = RequestConfig.custom().setConnectTimeout(Timeout.ofSeconds(10)).setConnectionRequestTimeout(Timeout.ofSeconds(3)).build();
+            post.setConfig(config);
+            // 准备数据
+            JSONObject jsonArray = new JSONObject();
+            JSONObject articles = new JSONObject();
+            jsonArray.put("media_id", mediaId);
+            // 要更新的文章在图文消息中的位置（多图文消息时，此字段才有意义），第一篇为0
+            jsonArray.put("index", 0);
+            articles.put("title", title);
+            articles.put("author", author);
+            articles.put("content", content);
+            articles.put("thumb_media_id", thumbMediaId);
+            articles.put("need_open_comment", 0);
+            articles.put("only_fans_can_comment", 0);
+            jsonArray.put("articles", articles);
+            // 设置请求体
+            post.setEntity(new StringEntity(jsonArray.toString(), Charset.forName("UTF-8")));
+            response = httpClient.execute(post);
+            // 整理返回值
+            HttpEntity entity = response.getEntity();
+            String result = EntityUtils.toString(entity);
+            JSONObject rst = JSON.parseObject(result);
+            return rst.getInteger("errcode");
+        } catch (SocketTimeoutException e) {
+            e.printStackTrace();
+            throw new RuntimeException("获取token出现连接/超时异常");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("获取token时执行内部代码时出现异常");
+        } finally {
+            try {
+                if (httpClient != null) {
+                    httpClient.close();
+                }
+                if (response != null) {
+                    response.close();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
+
+
+    /**
+     * 删除草稿接口
+     * @param accessToken
+     * @param mediaId
+     * @return
+     */
+    public static int deleteDraft(String accessToken, String mediaId) {
+        // 开始调用微信公众号的 api：发布草稿
+        try {
+            String url = ConstantUtil.deleteDraftUrl.replace("ACCESS_TOKEN", accessToken);
+            httpClient = HttpClients.createDefault();
+            HttpPost post = new HttpPost(url);
+            post.setHeader("Content-Type", "application/json;charset=utf-8");
+            post.setHeader("Accept", "application/json;charset=utf-8");
+            RequestConfig config = RequestConfig.custom().setConnectTimeout(Timeout.ofSeconds(10)).setConnectionRequestTimeout(Timeout.ofSeconds(3)).build();
+            post.setConfig(config);
+            // 准备数据
+            JSONObject json = new JSONObject();
+            json.put("media_id", mediaId);
+            // 设置请求体
+            post.setEntity(new StringEntity(json.toString(), Charset.forName("UTF-8")));
+            response = httpClient.execute(post);
+            // 整理返回值
+            HttpEntity entity = response.getEntity();
+            String result = EntityUtils.toString(entity);
+            JSONObject rst = JSON.parseObject(result);
+            return rst.getInteger("errcode");
+        } catch (SocketTimeoutException e) {
+            e.printStackTrace();
+            throw new RuntimeException("获取token出现连接/超时异常");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("获取token时执行内部代码时出现异常");
+        } finally {
+            try {
+                if (httpClient != null) {
+                    httpClient.close();
+                }
+                if (response != null) {
+                    response.close();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
 }
